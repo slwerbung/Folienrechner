@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Folienverbrauch Rechner</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        /* input[type="number"] sorgt dafür, dass auf Mobilgeräten direkt die Zifferntastatur öffnet */
+        input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        button { background: #007bff; color: white; padding: 12px 15px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 4px; display: none; }
+        .best { border: 2px solid #28a745; background: #d4edda; }
+        hr { border: 0; border-top: 1px solid #ccc; margin: 15px 0; }
+    </style>
+</head>
+<body>
+
+    <h2>Folienverbrauch & Layout-Optimierung</h2>
+    
+    <!-- input type="number" erlaubt die direkte, numerische Tastatureingabe -->
+    <div class="input-group">
+        <label for="width">Motivbreite (mm):</label>
+        <input type="number" id="width" placeholder="z.B. 120" min="1" step="any">
+    </div>
+    
+    <div class="input-group">
+        <label for="height">Motivhöhe (mm):</label>
+        <input type="number" id="height" placeholder="z.B. 80" min="1" step="any">
+    </div>
+    
+    <div class="input-group">
+        <label for="quantity">Menge (Stück):</label>
+        <input type="number" id="quantity" placeholder="z.B. 250" min="1">
+    </div>
+    
+    <button onclick="berechneVerbrauch()">Optimalen Verbrauch berechnen</button>
+
+    <div id="resultBox" class="result"></div>
+
+    <script>
+        function berechneVerbrauch() {
+            const mBreite = parseFloat(document.getElementById('width').value);
+            const mHoehe = parseFloat(document.getElementById('height').value);
+            const menge = parseInt(document.getElementById('quantity').value);
+            
+            // Validierung, falls Felder leer sind
+            if (isNaN(mBreite) || isNaN(mHoehe) || isNaN(menge)) {
+                alert("Bitte trage in allen Feldern gültige Zahlen ein.");
+                return;
+            }
+            
+            const folienBreiten = [1000, 1370, 1520]; 
+            const rand = 20; 
+            const abstand = 3; 
+            
+            const logoPlatzB = mBreite + (abstand * 2);
+            const logoPlatzH = mHoehe + (abstand * 2);
+            
+            let besteOption = null;
+            let ergebnisseHtml = "<h3>Ergebnisse im Vergleich:</h3>";
+            
+            folienBreiten.forEach(fBreite => {
+                const nutzbareBreite = fBreite - (rand * 2);
+                
+                if (nutzbareBreite <= 0) return;
+                
+                // Variante 1: Normal
+                const SpaltenNormal = Math.floor(nutzbareBreite / logoPlatzB);
+                const ReihenNormal = Math.ceil(menge / (SpaltenNormal || 1));
+                const laengeNormal = ReihenNormal * logoPlatzH;
+                const qmNormal = (laengeNormal / 1000) * (fBreite / 1000);
+                
+                // Variante 2: Gedreht
+                const SpaltenGedreht = Math.floor(nutzbareBreite / logoPlatzH);
+                const ReihenGedreht = Math.ceil(menge / (SpaltenGedreht || 1));
+                const laengeGedreht = ReihenGedreht * logoPlatzB;
+                const qmGedreht = (laengeGedreht / 1000) * (fBreite / 1000);
+                
+                let optimaleLaenge = 0;
+                let optimaleQm = 0;
+                let gedreht = false;
+                let passtÜberhaupt = (SpaltenNormal > 0 || SpaltenGedreht > 0);
+                
+                if (!passtÜberhaupt) {
+                    ergebnisseHtml += `<p><strong>${fBreite} mm:</strong> Motiv ist zu groß für diese Folie.</p>`;
+                    return;
+                }
+                
+                if (SpaltenNormal > 0 && (SpaltenGedreht === 0 || qmNormal <= qmGedreht)) {
+                    optimaleLaenge = laengeNormal;
+                    optimaleQm = qmNormal;
+                    gedreht = false;
+                } else {
+                    optimaleLaenge = laengeGedreht;
+                    optimaleQm = qmGedreht;
+                    gedreht = true;
+                }
+                
+                ergebnisseHtml += `<p><strong>Folie ${fBreite} mm:</strong> ${optimaleQm.toFixed(2)} m² (Laufmeter: ${(optimaleLaenge/1000).toFixed(2)} m) ${gedreht ? '[Motive gedreht]' : ''}</p>`;
+                
+                if (!besteOption || optimaleQm < besteOption.qm) {
+                    besteOption = {
+                        breite: fBreite,
+                        qm: optimaleQm,
+                        laenge: optimaleLaenge,
+                        gedreht: gedreht
+                    };
+                }
+            });
+            
+            const resultBox = document.getElementById('resultBox');
+            resultBox.style.display = 'block';
+            
+            if (besteOption) {
+                resultBox.className = "result best";
+                resultBox.innerHTML = `
+                    <h2>Empfehlung: ${besteOption.breite} mm Folie</h2>
+                    <p><strong>Gesamtverbrauch:</strong> ${besteOption.qm.toFixed(2)} m²</p>
+                    <p><strong>Benötigte Länge:</strong> ${(besteOption.laenge / 1000).toFixed(2)} Laufmeter</p>
+                    <p><strong>Ausrichtung:</strong> ${besteOption.gedreht ? 'Motive um 90° gedreht platzieren (platzsparender)' : 'Motive normal platzieren'}</p>
+                    <hr>
+                    ${ergebnisseHtml}
+                `;
+            } else {
+                resultBox.className = "result";
+                resultBox.innerHTML = "<p style='color:red;'>Das Motiv sprengt selbst die breiteste Folie (unter Beachtung der Ränder).</p>";
+            }
+        }
+    </script>
+</body>
+</html>
